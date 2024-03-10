@@ -15,11 +15,11 @@ use secp256k1::{Secp256k1, PublicKey};
 use sha3::{Digest, Keccak256};
 use rand::rngs::OsRng;
 use hex::encode;
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::{Instant, Duration};
 use num_format::{Locale, ToFormattedString};
-use crate::rand::RngCore;
+use rand::RngCore;
 
 #[derive(Parser, Debug)]
 #[clap(version, about, long_about = None)]
@@ -61,8 +61,10 @@ fn main() -> io::Result<()> {
     let start_time = Instant::now();
     let mut last_update = start_time;
     let mut addresses_generated: u64 = 0;
+    let found_addresses = Arc::new(Mutex::new(0u64));
 
-    update_statistics(start_time, &mut last_update, addresses_generated)?;
+    // Initial update_statistics call - modified to include found_addresses
+    update_statistics(start_time, &mut last_update, addresses_generated, found_addresses.clone())?;
 
     while running.load(Ordering::SeqCst) {
         let mut private_key_bytes = [0u8; 32];
@@ -78,12 +80,11 @@ fn main() -> io::Result<()> {
         let eth_address_hex = encode(eth_address);
         let eth_address_display = format!("0x{}", eth_address_hex);
 
-        let now = Local::now();
-        //println!("{} {}:{}", now.format(DATE_FORMAT), eth_address_display, encode(&private_key_bytes));
         addresses_generated += 1;
 
         if Instant::now() - last_update >= Duration::from_secs(1) {
-            update_statistics(start_time, &mut last_update, addresses_generated)?;
+            // Updated to include found_addresses in statistics update
+            update_statistics(start_time, &mut last_update, addresses_generated, found_addresses.clone())?;
         }
 
         for pattern in &wanted {
@@ -93,15 +94,19 @@ fn main() -> io::Result<()> {
                     let prefix = parts[0];
                     let suffix = parts[1];
                     if eth_address_display.starts_with(prefix) && eth_address_display.ends_with(suffix) {
-                        println!("\n{} {}:{}", now.format(DATE_FORMAT), eth_address_display, encode(&private_key_bytes));
-                        writeln!(file, "{} {}:{}", now.format(DATE_FORMAT), eth_address_display, encode(&private_key_bytes)).expect("Unable to write to file");
+                        let mut found = found_addresses.lock().unwrap();
+                        *found += 1;
+                        println!("\n{} {}:{}", Local::now().format(DATE_FORMAT), eth_address_display, encode(&private_key_bytes));
+                        writeln!(file, "{} {}:{}", Local::now().format(DATE_FORMAT), eth_address_display, encode(&private_key_bytes)).expect("Unable to write to file");
                         file.flush().expect("Failed to flush output");
                         break;
                     }
                 }
             } else if eth_address_display.starts_with(pattern) {
-                println!("\n{} {}:{}", now.format(DATE_FORMAT), eth_address_display, encode(&private_key_bytes));
-                writeln!(file, "{} {}:{}", now.format(DATE_FORMAT), eth_address_display, encode(&private_key_bytes)).expect("Unable to write to file");
+                let mut found = found_addresses.lock().unwrap();
+                *found += 1;
+                println!("\n{} {}:{}", Local::now().format(DATE_FORMAT), eth_address_display, encode(&private_key_bytes));
+                writeln!(file, "{} {}:{}", Local::now().format(DATE_FORMAT), eth_address_display, encode(&private_key_bytes)).expect("Unable to write to file");
                 file.flush().expect("Failed to flush output");
                 break;
             }
@@ -111,7 +116,6 @@ fn main() -> io::Result<()> {
     Ok(())
 }
 
-/// Converts seconds into days, hours, minutes, and seconds.
 fn format_duration(runtime_seconds: u64) -> String {
     let seconds = runtime_seconds % 60;
     let minutes = (runtime_seconds / 60) % 60;
@@ -130,11 +134,11 @@ fn format_duration(runtime_seconds: u64) -> String {
     }
     duration_str.push_str(&format!("{:02}s", seconds));
 
-    duration_str
+    duration_str // Ensure this line is present to return the constructed string
 }
 
 
-fn update_statistics(start_time: Instant, last_update: &mut Instant, addresses_generated: u64) -> io::Result<()> {
+fn update_statistics(start_time: Instant, last_update: &mut Instant, addresses_generated: u64, found_addresses: Arc<Mutex<u64>>) -> io::Result<()> {
     let runtime_seconds = Instant::now().duration_since(start_time).as_secs();
     let avg_per_minute = if runtime_seconds > 0 {
         addresses_generated * 60 / runtime_seconds
@@ -143,17 +147,38 @@ fn update_statistics(start_time: Instant, last_update: &mut Instant, addresses_g
     };
     let avg_per_hour = avg_per_minute * 60;
     let avg_per_day = avg_per_hour * 24;
-    let avg_per_month = avg_per_day * 30; // Approximation
+    let avg_per_month = avg_per_day * 30; // Approximation for generated addresses
 
     let runtime_formatted = format_duration(runtime_seconds);
 
-    print!("\r\x1B[KGenerated: {} addresses | Avg/min: {} | Avg/h: {} | Avg/day: {} | Avg/month: {} | Runtime: {}", 
-        addresses_generated.to_formatted_string(&Locale::en), 
-        avg_per_minute.to_formatted_string(&Locale::en), 
-        avg_per_hour.to_formatted_string(&Locale::en), 
-        avg_per_day.to_formatted_string(&Locale::en), 
-        avg_per_month.to_formatted_string(&Locale::en), 
-        runtime_formatted);
+    let found = *found_addresses.lock().unwrap();
+    let avg_found_per_minute = if runtime_seconds > 0 && found > 0 {
+        found * 60 / runtime_seconds
+    } else {
+        0
+    };
+    let avg_found_per_hour = avg_found_per_minute * 60;
+    let avg_found_per_day = avg_found_per_hour * 24;
+    let avg_found_per_month = avg_found_per_day * 30; // Approximation for found addresses
+
+    // Corrected print statement to include averages per hour, day, and month for both generated and found addresses
+    print!("\r\x1B[Kuptime {} | addr {} / {} | avg/m {} / {} | avg/h {} / {} | avg/d {} / {} | avg/m {} / {}",
+        runtime_formatted,
+        addresses_generated.to_formatted_string(&Locale::en),
+        found.to_formatted_string(&Locale::en),
+
+        avg_per_minute.to_formatted_string(&Locale::en),
+        avg_found_per_minute.to_formatted_string(&Locale::en),
+
+        avg_per_hour.to_formatted_string(&Locale::en),
+        avg_found_per_hour.to_formatted_string(&Locale::en),
+
+        avg_per_day.to_formatted_string(&Locale::en),
+        avg_found_per_day.to_formatted_string(&Locale::en),
+
+        avg_per_month.to_formatted_string(&Locale::en),
+        avg_found_per_month.to_formatted_string(&Locale::en),
+        );
     io::stdout().flush()?;
     *last_update = Instant::now();
 
