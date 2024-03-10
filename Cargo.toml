@@ -14,3 +14,4 @@ ctrlc = "3.2.1"
 num_cpus = "1.13.0"
 chrono = "0.4"
 clap = { version = "3", features = ["derive"] }
+num-format = "0.4"
