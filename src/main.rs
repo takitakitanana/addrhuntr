@@ -97,7 +97,7 @@ fn main() -> io::Result<()> {
                         let mut found = found_addresses.lock().unwrap();
                         *found += 1;
                         println!("\n{} {}", Local::now().format(DATE_FORMAT), eth_address_display);
-                        writeln!(file, "{} {}:{}", Local::now().format(DATE_FORMAT), eth_address_display, encode(&private_key_bytes)).expect("Unable to write to file");
+                        writeln!(file, "{} {} {}", Local::now().format(DATE_FORMAT), eth_address_display, encode(&private_key_bytes)).expect("Unable to write to file");
                         file.flush().expect("Failed to flush output");
                         break;
                     }
@@ -106,7 +106,7 @@ fn main() -> io::Result<()> {
                 let mut found = found_addresses.lock().unwrap();
                 *found += 1;
                 println!("\n{} {}", Local::now().format(DATE_FORMAT), eth_address_display);
-                writeln!(file, "{} {}:{}", Local::now().format(DATE_FORMAT), eth_address_display, encode(&private_key_bytes)).expect("Unable to write to file");
+                writeln!(file, "{} {} {}", Local::now().format(DATE_FORMAT), eth_address_display, encode(&private_key_bytes)).expect("Unable to write to file");
                 file.flush().expect("Failed to flush output");
                 break;
             }
