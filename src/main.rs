@@ -96,7 +96,7 @@ fn main() -> io::Result<()> {
                     if eth_address_display.starts_with(prefix) && eth_address_display.ends_with(suffix) {
                         let mut found = found_addresses.lock().unwrap();
                         *found += 1;
-                        println!("\n{} {}:{}", Local::now().format(DATE_FORMAT), eth_address_display, encode(&private_key_bytes));
+                        println!("\n{} {}", Local::now().format(DATE_FORMAT), eth_address_display);
                         writeln!(file, "{} {}:{}", Local::now().format(DATE_FORMAT), eth_address_display, encode(&private_key_bytes)).expect("Unable to write to file");
                         file.flush().expect("Failed to flush output");
                         break;
@@ -105,7 +105,7 @@ fn main() -> io::Result<()> {
             } else if eth_address_display.starts_with(pattern) {
                 let mut found = found_addresses.lock().unwrap();
                 *found += 1;
-                println!("\n{} {}:{}", Local::now().format(DATE_FORMAT), eth_address_display, encode(&private_key_bytes));
+                println!("\n{} {}", Local::now().format(DATE_FORMAT), eth_address_display);
                 writeln!(file, "{} {}:{}", Local::now().format(DATE_FORMAT), eth_address_display, encode(&private_key_bytes)).expect("Unable to write to file");
                 file.flush().expect("Failed to flush output");
                 break;
@@ -137,6 +137,25 @@ fn format_duration(runtime_seconds: u64) -> String {
     duration_str // Ensure this line is present to return the constructed string
 }
 
+fn format_bytes(bytes: u64) -> String {
+    const KB: u64 = 1024;
+    const MB: u64 = KB * 1024;
+    const GB: u64 = MB * 1024;
+    const TB: u64 = GB * 1024;
+
+    if bytes >= TB {
+        format!("{:.2} tb", bytes as f64 / TB as f64)
+    } else if bytes >= GB {
+        format!("{:.2} gb", bytes as f64 / GB as f64)
+    } else if bytes >= MB {
+        format!("{:.2} mb", bytes as f64 / MB as f64)
+    } else if bytes >= KB {
+        format!("{:.2} kb", bytes as f64 / KB as f64)
+    } else {
+        format!("{} b", bytes)
+    }
+}
+
 
 fn update_statistics(start_time: Instant, last_update: &mut Instant, addresses_generated: u64, found_addresses: Arc<Mutex<u64>>) -> io::Result<()> {
     let runtime_seconds = Instant::now().duration_since(start_time).as_secs();
@@ -161,24 +180,31 @@ fn update_statistics(start_time: Instant, last_update: &mut Instant, addresses_g
     let avg_found_per_day = avg_found_per_hour * 24;
     let avg_found_per_month = avg_found_per_day * 30; // Approximation for found addresses
 
-    // Corrected print statement to include averages per hour, day, and month for both generated and found addresses
-    print!("\r\x1B[Kuptime {} | addr {} / {} | avg/m {} / {} | avg/h {} / {} | avg/d {} / {} | avg/m {} / {}",
+    // File size estimation: one entry = 134 bytes
+    let bytes_per_found = 134;
+    let filesize_increase_per_minute = avg_found_per_minute * bytes_per_found;
+    let filesize_increase_per_hour = avg_found_per_hour * bytes_per_found;
+    let filesize_increase_per_day = avg_found_per_day * bytes_per_found;
+    let filesize_increase_per_month = avg_found_per_month * bytes_per_found;
+
+    // Use format_bytes for displaying filesize increases in a readable format
+    print!("\r\x1B[Kuptime {} | addr {} / {} | avg/m {} / {} ({}) | avg/h {} / {} ({}) | avg/d {} / {} ({}) | avg/m {} / {} ({})",
         runtime_formatted,
         addresses_generated.to_formatted_string(&Locale::en),
         found.to_formatted_string(&Locale::en),
-
         avg_per_minute.to_formatted_string(&Locale::en),
         avg_found_per_minute.to_formatted_string(&Locale::en),
-
+        format_bytes(filesize_increase_per_minute),
         avg_per_hour.to_formatted_string(&Locale::en),
         avg_found_per_hour.to_formatted_string(&Locale::en),
-
+        format_bytes(filesize_increase_per_hour),
         avg_per_day.to_formatted_string(&Locale::en),
         avg_found_per_day.to_formatted_string(&Locale::en),
-
+        format_bytes(filesize_increase_per_day),
         avg_per_month.to_formatted_string(&Locale::en),
         avg_found_per_month.to_formatted_string(&Locale::en),
-        );
+        format_bytes(filesize_increase_per_month),
+    );
     io::stdout().flush()?;
     *last_update = Instant::now();
 
