@@ -23,7 +23,7 @@ use rand::RngCore;
 use serde_json;
 
 #[derive(Parser)]
-#[clap(author = "takitakitanana", version = "1.1", about = "Hunting specific addresses.", long_about = None)]
+#[clap(author = "takitakitanana", version = "2.0", about = "Hunting specific addresses.", long_about = None)]
 struct Args {
     /// Input file
     //#[clap(short, long, help = "Input file", default_value = "/data/find.txt")]
