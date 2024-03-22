@@ -20,19 +20,35 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::{Instant, Duration};
 use num_format::{Locale, ToFormattedString};
 use rand::RngCore;
+use serde_json;
 
-#[derive(Parser, Debug)]
-#[clap(version, about, long_about = None)]
+#[derive(Parser)]
+#[clap(author = "takitakitanana", version = "1.1", about = "Hunting specific addresses.", long_about = None)]
 struct Args {
-    #[clap(short, long)]
+    /// Input file
+    //#[clap(short, long, help = "Input file", default_value = "/data/find.txt")]
+    #[clap(short, long, help = "Input file")]
     in_file: String,
-    #[clap(short, long)]
+
+    /// Output file
+    //#[clap(short, long, help = "Output file", default_value = "/data/found.txt")]
+    #[clap(short, long, help = "Output file")]
     out_file: String,
-}
+
+    // Discord webhook URL argument
+    #[clap(short = 'd', long = "discord", help = "Discord Webhook URL.")]
+    discord_webhook_url: Option<String>,
+
+    // User mention argument
+    #[clap(short = 'u', long = "user", help = "User ID to mention in Discord message.")]
+    user_mention: Option<String>,
+    }
+
 
 static DATE_FORMAT: &str = "%d-%m-%Y %H:%M:%S%.6f";
 
-fn main() -> io::Result<()> {
+#[tokio::main]
+async fn main() -> Result<(), std::io::Error> {
     let args = Args::parse();
 
     let file = File::open(&args.in_file)?;
@@ -49,7 +65,7 @@ fn main() -> io::Result<()> {
 
     let secp = Secp256k1::new();
     let mut rng = OsRng;
-    let path = format!(".\\{}", args.out_file);
+    let path = format!("{}", args.out_file);
 
     let file = OpenOptions::new()
         .create(true)
@@ -103,17 +119,38 @@ fn main() -> io::Result<()> {
                     }
                 }
             } else if eth_address_display.starts_with(pattern) {
-                let mut found = found_addresses.lock().unwrap();
-                *found += 1;
-                println!("\n{} {}", Local::now().format(DATE_FORMAT), eth_address_display);
-                writeln!(file, "{} {} {}", Local::now().format(DATE_FORMAT), eth_address_display, encode(&private_key_bytes)).expect("Unable to write to file");
-                file.flush().expect("Failed to flush output");
-                break;
+
+                // Assuming `eth_address_display` starts with "0xdead"
+                if eth_address_display.starts_with("0x00000000") {
+                    // Check if both the Discord webhook URL and user mention were provided
+                    if let (Some(webhook_url), Some(user_mention)) = (&args.discord_webhook_url, &args.user_mention) {
+                        // Construct the message payload with user mention
+                        let payload = serde_json::json!({
+                            "content": format!("{} found ETH address: {}", user_mention, eth_address_display)
+                        });
+
+                        // Send the Discord message
+                        let client = reqwest::Client::new();
+                        match client.post(webhook_url)
+                            .json(&payload)
+                            .send()
+                            .await {
+                                Ok(_) => println!(" -> notification sent to Discord."),
+                                Err(e) => println!(" -> failed to send Discord notification: {}", e),
+                        }
+                    }
+                }
+
+            let mut found = found_addresses.lock().unwrap();
+            *found += 1;
+            println!("\n{} {}", Local::now().format(DATE_FORMAT), eth_address_display);
+            writeln!(file, "{} {} {}", Local::now().format(DATE_FORMAT), eth_address_display, encode(&private_key_bytes)).expect("Unable to write to file");
+            file.flush().expect("Failed to flush output");
+            break;
             }
         }
     }
-
-    Ok(())
+Ok(())
 }
 
 fn format_duration(runtime_seconds: u64) -> String {
@@ -144,18 +181,17 @@ fn format_bytes(bytes: u64) -> String {
     const TB: u64 = GB * 1024;
 
     if bytes >= TB {
-        format!("{:.2} tb", bytes as f64 / TB as f64)
+        format!("{:.2}tb", bytes as f64 / TB as f64)
     } else if bytes >= GB {
-        format!("{:.2} gb", bytes as f64 / GB as f64)
+        format!("{:.2}gb", bytes as f64 / GB as f64)
     } else if bytes >= MB {
-        format!("{:.2} mb", bytes as f64 / MB as f64)
+        format!("{:.2}mb", bytes as f64 / MB as f64)
     } else if bytes >= KB {
-        format!("{:.2} kb", bytes as f64 / KB as f64)
+        format!("{:.2}kb", bytes as f64 / KB as f64)
     } else {
-        format!("{} b", bytes)
+        format!("{}b", bytes)
     }
 }
-
 
 fn update_statistics(start_time: Instant, last_update: &mut Instant, addresses_generated: u64, found_addresses: Arc<Mutex<u64>>) -> io::Result<()> {
     let runtime_seconds = Instant::now().duration_since(start_time).as_secs();
@@ -166,7 +202,6 @@ fn update_statistics(start_time: Instant, last_update: &mut Instant, addresses_g
     };
     let avg_per_hour = avg_per_minute * 60;
     let avg_per_day = avg_per_hour * 24;
-    let avg_per_month = avg_per_day * 30; // Approximation for generated addresses
 
     let runtime_formatted = format_duration(runtime_seconds);
 
@@ -180,33 +215,18 @@ fn update_statistics(start_time: Instant, last_update: &mut Instant, addresses_g
     let avg_found_per_day = avg_found_per_hour * 24;
     let avg_found_per_month = avg_found_per_day * 30; // Approximation for found addresses
 
-    // File size estimation: one entry = 134 bytes
     let bytes_per_found = 134;
     let filesize_increase_per_minute = avg_found_per_minute * bytes_per_found;
-    let filesize_increase_per_hour = avg_found_per_hour * bytes_per_found;
-    let filesize_increase_per_day = avg_found_per_day * bytes_per_found;
-    let filesize_increase_per_month = avg_found_per_month * bytes_per_found;
 
-    // Use format_bytes for displaying filesize increases in a readable format
-    print!("\r\x1B[Kuptime {} | addr {} / {} | avg/m {} / {} ({}) | avg/h {} / {} ({}) | avg/d {} / {} ({}) | avg/m {} / {} ({})",
+    print!("\r\x1B[K| uptime {} | found {} | avg/min {} (est. {}) |",
         runtime_formatted,
-        addresses_generated.to_formatted_string(&Locale::en),
+        //addresses_generated.to_formatted_string(&Locale::en),
         found.to_formatted_string(&Locale::en),
-        avg_per_minute.to_formatted_string(&Locale::en),
         avg_found_per_minute.to_formatted_string(&Locale::en),
         format_bytes(filesize_increase_per_minute),
-        avg_per_hour.to_formatted_string(&Locale::en),
-        avg_found_per_hour.to_formatted_string(&Locale::en),
-        format_bytes(filesize_increase_per_hour),
-        avg_per_day.to_formatted_string(&Locale::en),
-        avg_found_per_day.to_formatted_string(&Locale::en),
-        format_bytes(filesize_increase_per_day),
-        avg_per_month.to_formatted_string(&Locale::en),
-        avg_found_per_month.to_formatted_string(&Locale::en),
-        format_bytes(filesize_increase_per_month),
     );
     io::stdout().flush()?;
     *last_update = Instant::now();
 
     Ok(())
-}
+    }

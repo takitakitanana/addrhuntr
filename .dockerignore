@@ -1,0 +1,7 @@
+README.md
+target/
+Dockerfile
+data
+srv/main_working.rs
+.gitignore
+Cargo.lock
