@@ -5,7 +5,7 @@
 ![Stars](https://img.shields.io/github/stars/takitakitanana/addrhuntr)
 [![License](https://img.shields.io/github/license/takitakitanana/addrhuntr)](LICENSE)
 
-![image](https://github.com/takitakitanana/addrhuntr/assets/112820741/80c9d581-b706-4ab2-a4af-956fbda0289e)
+![image](https://github.com/takitakitanana/addrhuntr/assets/112820741/fae82d53-6d2b-4dda-b6f5-52790c614814)
 
 `addrhuntr` is a specialized tool designed to hunt for specific Ethereum wallet addresses with patterns that are considered rare or desirable.
 
@@ -57,3 +57,26 @@ Discord Documentation:
 https://support.discord.com/hc/en-us/articles/206346498-Where-can-I-find-my-User-Server-Message-ID  
 `-d` -> https://support.discord.com/hc/en-us/articles/228383668-Intro-to-Webhooks
 
+## To-Do
+
+Here are some enhancements that are planned for future releases of `addrhuntr`:
+
+- **Unified Timestamps**: Ensure the timestamp for when an address is found and when it is written to `found.txt` uses the same variable, providing precise synchronization.
+
+- **Bare-Metal Instructions**: Add detailed instructions for compiling and running the Rust binary directly on the system without Docker, allowing users more flexibility in how they run `addrhuntr`.
+
+- **Customizable Discord Mention**: Implement an argument (`argv`) that allows users to specify the keyword for Discord pings, moving away from the current hardcoded value.
+
+- **Multi-Threading Support**: Introduce multi-threading capabilities to enhance performance and utilize computational resources more efficiently.
+
+- **Code Refactor**: Refactor the codebase for better maintainability, readability, and performance optimization.
+
+- **Implement Multi-Stage Docker Build**: Transition to a multi-stage Docker build process to reduce the final image size by compiling the application in a Rust build environment and then moving the compiled binary to a smaller base image for runtime.
+
+- **Verbose Statistics Feature**: Add a command-line argument (`--stats` and `-s`) to enable more detailed statistics during runtime for users who require in-depth information about the address generation process.
+
+- **Docker Image Hosting**: Publish the `addrhuntr` Docker image to a container registry such as Docker Hub, tagged with versions and `latest` to simplify deployment and distribution.
+
+- **Blockchain Support Expansion**: Extend functionality to generate and analyze addresses for Bitcoin and other blockchains, enhancing the utility of `addrhuntr` across different cryptocurrency ecosystems.
+
+Contributions to address these points are welcome, appreciate any input or pull requests from the community to help improve `addrhuntr`.
