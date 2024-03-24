@@ -1,5 +1,10 @@
 # addrhuntr
 
+![Issues](https://img.shields.io/github/issues/takitakitanana/addrhuntr)
+![Forks](https://img.shields.io/github/forks/takitakitanana/addrhuntr)
+![Stars](https://img.shields.io/github/stars/takitakitanana/addrhuntr)
+[![License](https://img.shields.io/github/license/takitakitanana/addrhuntr)](LICENSE)
+
 ![image](https://github.com/takitakitanana/addrhuntr/assets/112820741/80c9d581-b706-4ab2-a4af-956fbda0289e)
 
 `addrhuntr` is a specialized tool designed to hunt for specific Ethereum wallet addresses with patterns that are considered rare or desirable.
@@ -8,7 +13,7 @@ This tool focuses on generating and matching Ethereum addresses that start with 
 
 ## Prerequisites
 
-- You have installed Docker on your system. (https://docs.docker.com/engine/install/)
+- You have Docker installed on your system. (https://docs.docker.com/engine/install/)
 
 ## Run
 
@@ -51,3 +56,4 @@ Discord Documentation:
 `-u` ->
 https://support.discord.com/hc/en-us/articles/206346498-Where-can-I-find-my-User-Server-Message-ID  
 `-d` -> https://support.discord.com/hc/en-us/articles/228383668-Intro-to-Webhooks
+
