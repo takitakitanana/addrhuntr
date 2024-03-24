@@ -26,24 +26,23 @@ use serde_json;
 #[clap(author = "takitakitanana", version = "2.0", about = "Hunting specific addresses.", long_about = None)]
 struct Args {
     /// Input file
-    //#[clap(short, long, help = "Input file", default_value = "/data/find.txt")]
-    #[clap(short, long, help = "Input file")]
+    #[clap(short, long, help = "Input file (optional).", default_value = "/data/find.txt")]
+    //#[clap(short, long, help = "Input file")]
     in_file: String,
 
     /// Output file
-    //#[clap(short, long, help = "Output file", default_value = "/data/found.txt")]
-    #[clap(short, long, help = "Output file")]
+    #[clap(short, long, help = "Output file (optional).", default_value = "/data/found.txt")]
+    //#[clap(short, long, help = "Output file")]
     out_file: String,
 
     // Discord webhook URL argument
-    #[clap(short = 'd', long = "discord", help = "Discord Webhook URL.")]
+    #[clap(short = 'd', long = "discord", help = "Discord Webhook URL (optional).")]
     discord_webhook_url: Option<String>,
 
     // User mention argument
-    #[clap(short = 'u', long = "user", help = "User ID to mention in Discord message.")]
+    #[clap(short = 'u', long = "user", help = "User ID to mention in Discord message (optional).")]
     user_mention: Option<String>,
     }
-
 
 static DATE_FORMAT: &str = "%d-%m-%Y %H:%M:%S%.6f";
 
@@ -218,7 +217,7 @@ fn update_statistics(start_time: Instant, last_update: &mut Instant, addresses_g
     let bytes_per_found = 134;
     let filesize_increase_per_minute = avg_found_per_minute * bytes_per_found;
 
-    print!("\r\x1B[K| uptime {} | found {} | avg/min {} (est. {}) |",
+    print!("\r\x1B[K| uptime {} | found {} | avg/min {} | size/min {} |",
         runtime_formatted,
         //addresses_generated.to_formatted_string(&Locale::en),
         found.to_formatted_string(&Locale::en),
@@ -229,4 +228,4 @@ fn update_statistics(start_time: Instant, last_update: &mut Instant, addresses_g
     *last_update = Instant::now();
 
     Ok(())
-    }
+}
