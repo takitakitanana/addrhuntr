@@ -1,2 +1,3 @@
 /target
-data/found.txt
+wallets/found.txt
+Cargo.lock

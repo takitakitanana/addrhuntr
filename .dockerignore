@@ -1,7 +1,6 @@
 README.md
 target/
 Dockerfile
-data
-srv/main_working.rs
+wallets
 .gitignore
-Cargo.lock
+.git
