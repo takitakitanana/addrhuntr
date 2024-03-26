@@ -8,7 +8,6 @@ extern crate clap;
 extern crate num_format;
 
 use clap::Parser;
-use chrono::Local;
 use std::fs::{File, OpenOptions};
 use std::io::{self, Write, BufWriter, BufRead};
 use secp256k1::{Secp256k1, PublicKey};
@@ -23,28 +22,30 @@ use rand::RngCore;
 use serde_json;
 
 #[derive(Parser)]
-#[clap(author = "takitakitanana", version = "2.0", about = "Hunting specific addresses.", long_about = None)]
+#[clap(author = "takitakitanana", version = "2.2", about = "Hunting specific addresses.", long_about = None)]
 struct Args {
     /// Input file
-    #[clap(short, long, help = "Input file (optional).", default_value = "/data/find.txt")]
+    #[clap(short, long, help = "Input file (optional).", default_value = "/wallets/find.txt")]
     //#[clap(short, long, help = "Input file")]
     in_file: String,
 
     /// Output file
-    #[clap(short, long, help = "Output file (optional).", default_value = "/data/found.txt")]
+    #[clap(short, long, help = "Output file (optional).", default_value = "/wallets/found.txt")]
     //#[clap(short, long, help = "Output file")]
     out_file: String,
 
-    // Discord webhook URL argument
+    /// Discord webhook URL argument
     #[clap(short = 'd', long = "discord", help = "Discord Webhook URL (optional).")]
     discord_webhook_url: Option<String>,
 
-    // User mention argument
+    /// User mention argument
     #[clap(short = 'u', long = "user", help = "User ID to mention in Discord message (optional).")]
     user_mention: Option<String>,
-    }
 
-static DATE_FORMAT: &str = "%d-%m-%Y %H:%M:%S%.6f";
+    /// Ping
+    #[clap(short, long, help = "Ping for address prefix.", default_value = "0x00000000")]
+    ping: String,
+    }
 
 #[tokio::main]
 async fn main() -> Result<(), std::io::Error> {
@@ -59,7 +60,7 @@ async fn main() -> Result<(), std::io::Error> {
 
     ctrlc::set_handler(move || {
         r.store(false, Ordering::SeqCst);
-        println!("\nCtrl-C detected, stopping...");
+        println!("\nBye.");
     }).expect("Error setting Ctrl-C handler");
 
     let secp = Secp256k1::new();
@@ -111,8 +112,8 @@ async fn main() -> Result<(), std::io::Error> {
                     if eth_address_display.starts_with(prefix) && eth_address_display.ends_with(suffix) {
                         let mut found = found_addresses.lock().unwrap();
                         *found += 1;
-                        println!("\n{} {}", Local::now().format(DATE_FORMAT), eth_address_display);
-                        writeln!(file, "{} {} {}", Local::now().format(DATE_FORMAT), eth_address_display, encode(&private_key_bytes)).expect("Unable to write to file");
+                        println!("{}", eth_address_display);
+                        writeln!(file, "{} {}", eth_address_display, encode(&private_key_bytes)).expect("Unable to write to file");
                         file.flush().expect("Failed to flush output");
                         break;
                     }
@@ -120,12 +121,12 @@ async fn main() -> Result<(), std::io::Error> {
             } else if eth_address_display.starts_with(pattern) {
 
                 // Assuming `eth_address_display` starts with "0xdead"
-                if eth_address_display.starts_with("0x00000000") {
+                if eth_address_display.starts_with(&args.ping) {
                     // Check if both the Discord webhook URL and user mention were provided
                     if let (Some(webhook_url), Some(user_mention)) = (&args.discord_webhook_url, &args.user_mention) {
                         // Construct the message payload with user mention
                         let payload = serde_json::json!({
-                            "content": format!("{} found ETH address: {}", user_mention, eth_address_display)
+                            "content": format!("{} found {}", user_mention, eth_address_display)
                         });
 
                         // Send the Discord message
@@ -134,16 +135,16 @@ async fn main() -> Result<(), std::io::Error> {
                             .json(&payload)
                             .send()
                             .await {
-                                Ok(_) => println!(" -> notification sent to Discord."),
-                                Err(e) => println!(" -> failed to send Discord notification: {}", e),
+                                Ok(_) => println!("-> notification sent to Discord."),
+                                Err(e) => println!("-> failed to send Discord notification: {}", e),
                         }
                     }
                 }
 
             let mut found = found_addresses.lock().unwrap();
             *found += 1;
-            println!("\n{} {}", Local::now().format(DATE_FORMAT), eth_address_display);
-            writeln!(file, "{} {} {}", Local::now().format(DATE_FORMAT), eth_address_display, encode(&private_key_bytes)).expect("Unable to write to file");
+            println!("{}", eth_address_display);
+            writeln!(file, "{} {}", eth_address_display, encode(&private_key_bytes)).expect("Unable to write to file");
             file.flush().expect("Failed to flush output");
             break;
             }
@@ -214,10 +215,10 @@ fn update_statistics(start_time: Instant, last_update: &mut Instant, addresses_g
     let avg_found_per_day = avg_found_per_hour * 24;
     let avg_found_per_month = avg_found_per_day * 30; // Approximation for found addresses
 
-    let bytes_per_found = 134;
+    let bytes_per_found = 107;
     let filesize_increase_per_minute = avg_found_per_minute * bytes_per_found;
 
-    print!("\r\x1B[K| uptime {} | found {} | avg/min {} | size/min {} |",
+    print!("\r\x1B[K| uptime {} | found {} | avg/min {} | size/min {} | ",
         runtime_formatted,
         //addresses_generated.to_formatted_string(&Locale::en),
         found.to_formatted_string(&Locale::en),
